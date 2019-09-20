@@ -31,6 +31,37 @@ struct execute_count
 };
 
 
+void builtin_exit(void)
+{
+    exit(0);
+}
+
+
+void builtin_cd(char *direcotry)
+{
+    int result=chdir(direcotry);
+    if (result == -1){
+        printf("Error changing directory!");
+    }
+}
+
+
+void builtin_path(char paths[5][32])
+{
+    printf("THe first path is %s\n", paths[0]);
+    for (int i=0; i<16; i++){
+        //strcpy(cmd_para[i][j], "\0");
+        printf("Clean the space %d\n", i);
+        memset(ENVPATH[i], 0, MAX_STRING);
+        strcpy(ENVPATH[i], "\0");
+    }
+    for (int i=0; strcmp(paths[i], "\0")!=0; i++){
+        printf("Assign the new path %d\n", i);
+        strcpy(ENVPATH[i], paths[i]);
+        printf("The new Path %d is: %s\n", i, ENVPATH[i]);
+    }
+}
+
 void initialize_array(void)
 {
     //assign empty string value to both the command and parameter array
@@ -72,8 +103,8 @@ struct execute_count prepare_cmd(char *line)
                     memcpy(cmd_para[curCmd][curPar++], &line[base], line_cursor-base);
                 }
                 // move the word base to the next character of the empty space
-                base = line_cursor+1;
             }
+            base = line_cursor+1;
         }
         // when a '&' is reached, move to the next command, and re-count the parameter
         else if (line[line_cursor]=='&'){
@@ -140,56 +171,75 @@ void execute_cmd(char *line)
     for (int i=0; i<input_cmd; i++){
         int PATH_INDEX=0;
         int avaliable=0;
-        while (strcmp(ENVPATH[PATH_INDEX], "\0")!=0){
-            memset(exe_cmd,0,strlen(exe_cmd));
-            strcpy(exe_cmd, ENVPATH[PATH_INDEX]);
-            strcat(exe_cmd, "/");
-            strcat(exe_cmd, cmd[i]);
-            //strcat(exe_cmd, "\0");
-            printf("exe_cmd is %s\n", exe_cmd);
-            if (access(exe_cmd, X_OK)==0){
-                printf("Have access\n");
-                avaliable=1;
-                break;
-            }
-            PATH_INDEX++;
+        if (strcmp(cmd[i], "exit") == 0){
+            builtin_exit();
         }
-        if (avaliable){
-            int exe_idx=1;
-            printf("Step 2.1\n");
-            executable[0] = malloc(sizeof(char) * 32);
-            //memset(executable[0],0,strlen(executable[0]));
-            strcpy(executable[0], exe_cmd);
-            printf("executable[0] is %s\n", executable[0]);
-            while (strcmp(cmd_para[i][exe_idx-1], "\0") != 0){
-                printf("Step 2.%d\n", exe_idx+1);
-                executable[exe_idx] = malloc(sizeof(char) * 32);
-                //memset(executable[exe_idx],0,strlen(executable[exe_idx]));
-                strcpy(executable[exe_idx], cmd_para[i][exe_idx-1]);
-                //executable[exe_idx]=cmd_para[i][exe_idx-1];
-                printf("executable[%d] is %s\n", exe_idx, executable[exe_idx]);
-                exe_idx++;
+        else if (strcmp(cmd[i], "cd") == 0){
+            if (strcmp(cmd_para[i][1], "\0") != 0){
+                printf("Only 1 parameter is allowed!! This 'cd' command will not be executed\n");
             }
-            printf("final Step\n");
-            executable[exe_idx] = malloc(sizeof(char) * 32);
-            //memset(executable[exe_idx],0,strlen(executable[exe_idx]));
-            //strcpy(executable[exe_idx], "\0");
-            executable[exe_idx]=str;
-            //executable[exe_idx]=NULL;
-            printf("The final executable is: %s, %s, %s, %s\n", executable[0], executable[1],executable[2],executable[3]);
-            
-            int child_process=fork();
-            if (child_process<0){ // FORK FAILLED
-                printf("Fork FAILED!!!!\n");
-            }
-            else if (child_process==0){ // Child Process
-                printf("CHILD PROCESS HERE!\n");
-                printf("Command to be execute is: %s\n", executable[0]);
-                execv(executable[0], executable);
-                printf("CHILD PROCESS FINISHED!\n");
+            else if (strcmp(cmd_para[i][0], "\0") == 0){
+                printf("The 'cd' command should take 1 parameter\n");
             }
             else{
-                printf("\n");
+                builtin_cd(cmd_para[i][0]);
+            }
+        }
+        else if (strcmp(cmd[i], "path") == 0){
+            builtin_path(cmd_para[i]);
+        }
+        else{
+            while (strcmp(ENVPATH[PATH_INDEX], "\0")!=0){
+                memset(exe_cmd,0,strlen(exe_cmd));
+                strcpy(exe_cmd, ENVPATH[PATH_INDEX]);
+                strcat(exe_cmd, "/");
+                strcat(exe_cmd, cmd[i]);
+                //strcat(exe_cmd, "\0");
+                printf("exe_cmd is %s\n", exe_cmd);
+                if (access(exe_cmd, X_OK)==0){
+                    printf("Have access\n");
+                    avaliable=1;
+                    break;
+                }
+                PATH_INDEX++;
+            }
+            if (avaliable){
+                int exe_idx=1;
+                printf("Step 2.1\n");
+                executable[0] = malloc(sizeof(char) * 32);
+                //memset(executable[0],0,strlen(executable[0]));
+                strcpy(executable[0], exe_cmd);
+                printf("executable[0] is %s\n", executable[0]);
+                while (strcmp(cmd_para[i][exe_idx-1], "\0") != 0){
+                    printf("Step 2.%d\n", exe_idx+1);
+                    executable[exe_idx] = malloc(sizeof(char) * 32);
+                    //memset(executable[exe_idx],0,strlen(executable[exe_idx]));
+                    strcpy(executable[exe_idx], cmd_para[i][exe_idx-1]);
+                    //executable[exe_idx]=cmd_para[i][exe_idx-1];
+                    printf("executable[%d] is %s\n", exe_idx, executable[exe_idx]);
+                    exe_idx++;
+                }
+                printf("final Step\n");
+                executable[exe_idx] = malloc(sizeof(char) * 32);
+                //memset(executable[exe_idx],0,strlen(executable[exe_idx]));
+                //strcpy(executable[exe_idx], "\0");
+                executable[exe_idx]=str;
+                //executable[exe_idx]=NULL;
+                printf("The final executable is: %s, %s, %s, %s\n", executable[0], executable[1],executable[2],executable[3]);
+                
+                int child_process=fork();
+                if (child_process<0){ // FORK FAILLED
+                    printf("Fork FAILED!!!!\n");
+                }
+                else if (child_process==0){ // Child Process
+                    printf("CHILD PROCESS HERE!\n");
+                    printf("Command to be execute is: %s\n", executable[0]);
+                    execv(executable[0], executable);
+                    printf("CHILD PROCESS FINISHED!\n");
+                }
+                else{
+                    printf("\n");
+                }
             }
         }
     }
